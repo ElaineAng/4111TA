@@ -1,0 +1,8 @@
+body {
+  font-size: 15pt;
+  font-family: Arial, sans-serif;
+}
+
+[role="alert"] {
+  color: #9b1c1c;
+}

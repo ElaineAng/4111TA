@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
+    <meta name="ROBOTS" content="NOARCHIVE">
+    <title>Cloud Run Setup</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
+    <link rel="stylesheet" type="text/css" href="https://www.cs.columbia.edu/~gravano/style.css">
+  </head>
+
+<body>
+<div class="container sec">
+
+<div style="background-color:#9bddff; color:#4682B4; padding:8px;">
+  <h4><a href="https://www.cs.columbia.edu/~gravano/cs4111/index.html">COMS W4111.001-Introduction to Databases</a><br>
+  Fall 2026</h4>
+  <h2>Cloud Run Setup</h2>
+</div>
+
+<h3>1. Select your existing Part 2 project</h3>
+
+<p>These instructions continue from Parts 1 and 2 of Project 1. You
+should already have a Google Cloud account, education billing account,
+project, virtual machine, Compute Engine default service account,
+provided proxy JSON key file, and assigned PostgreSQL credentials.
+Only one teammate needs to perform this setup. See the
+<a href="https://www.cs.columbia.edu/~gravano/cs4111/Proj1-3/">Part 3
+assignment</a> for the starter download and repository instructions.</p>
+
+<ol>
+  <li>Go to <a href="https://console.cloud.google.com/">console.cloud.google.com</a>.
+    Click your profile icon and confirm that you are signed in with
+    your <strong>university account</strong>.</li>
+  <li>Open the project selector at the top of the page. Select the
+    <strong>existing project you used for Part 2</strong> and check
+    its project ID.</li>
+  <li>Open <strong>Billing</strong> and check that this project is
+    already linked to your course education billing account. If
+    billing is disabled or the account is incorrect, contact staff;
+    do not create a personal paid billing account.</li>
+</ol>
+
+<p>Check that your Part 2 project remains selected before each section
+below. Keep your provided <code>proxy-key.json</code> file and Part 2
+PostgreSQL username and password ready, but never put them in GitHub.
+Running Cloud Run, builds, image storage, and Secret Manager uses
+credits. We will use request-based billing and limit the service to
+one instance to reduce costs; this is not an absolute spending or
+database-connection cap.</p>
+
+<h3>2. Check your GitHub repository</h3>
+
+<p>You should already have created your team's private repository and
+uploaded the starter contents from the assignment ZIP.</p>
+
+<ol>
+  <li>Open your team's <strong>private</strong> repository on GitHub
+    and select <code>main</code>.</li>
+  <li>Confirm that <code>server.py</code>,
+    <code>requirements.txt</code>, <code>Procfile</code>, and
+    <code>.python-version</code> are at the repository root, with
+    <code>templates/</code> and <code>static/</code> alongside them.
+    They must not be nested inside an extra starter directory.</li>
+  <li>Open <code>.python-version</code> and confirm that it contains
+    exactly <code>3.14.6</code>.</li>
+  <li>Open <code>Procfile</code> and confirm that its web entry is:</li>
+</ol>
+
+<pre>web: gunicorn --bind 0.0.0.0:$PORT --workers 1 server:app</pre>
+
+<p>This is file content, not a command to run. The build will use it to
+start the Flask application in <code>server.py</code>. Keep credentials
+out of the repository, even though it is private.</p>
+
+<h3>3. Upload the database secrets</h3>
+
+<ol>
+  <li>Use the Console search bar to open <strong>Secret Manager</strong>
+    in your Part 2 project. If prompted, click <strong>Enable</strong>
+    and wait for the service to become available. At the top of the
+    page, make sure the
+    <strong>Secrets</strong> tab is selected, not
+    <strong>Regional secrets</strong>, before clicking
+    <strong>Create secret</strong>.</li>
+  <li>Click <strong>Create secret</strong>. Enter
+    <code>cloud-sql-proxy-key</code> as the name. For the secret value,
+    click <strong>Upload file</strong> and select the provided
+    <code>proxy-key.json</code> file. Click
+    <strong>Create secret</strong>.</li>
+  <li>Create a second secret named <code>db-user</code>, with
+    your team's actual Part 2 PostgreSQL username as its value.</li>
+  <li>Create a third secret named <code>db-password</code>,
+    with that PostgreSQL account's current password as its value.
+    Enter the username and password without surrounding quotes or
+    extra whitespace.</li>
+  <li>Return to the secret list and select the
+    <strong>checkboxes next to all three secrets</strong>. Click
+    <strong>Show Info Panel</strong> if needed, then
+    <strong>Add principal</strong>.</li>
+  <li>In <strong>New principals</strong>, select the
+    <strong>Compute Engine default service account</strong>. Check
+    that the account belongs to your Part 2 project.</li>
+  <li>Under <strong>Select a role</strong>, choose
+    <strong>Secret Manager &rarr; Secret Manager Secret Accessor</strong>
+    and click <strong>Save</strong>.</li>
+</ol>
+
+<p><strong>Important:</strong> Choose
+<strong>Secret Manager Secret Accessor</strong>, not
+<strong>Secret Manager Viewer</strong>. Viewer cannot read the stored
+credentials. Grant access to the default account running Cloud Run,
+not the identity inside the uploaded JSON key. Never grant secret
+access to <code>allUsers</code> or include secret values in screenshots,
+source code, or build environment variables.</p>
+
+<h3>4. Connect GitHub and configure the service</h3>
+
+<ol>
+  <li>Use the Console search bar to open <strong>Cloud Run</strong>.
+    If prompted, click <strong>Enable</strong> and wait for the service
+    to become available. Go to <strong>Services &rarr; Connect repo</strong>
+    to open the service creation page.</li>
+  <li>Select <strong>Cloud Build</strong>, not Developer Connect, and
+    click <strong>Set up with Cloud Build</strong>.</li>
+  <li>In <strong>Set up with Cloud Build</strong>, authenticate with
+    GitHub if prompted. When asked where to install the
+    <strong>Google Cloud Build GitHub App</strong>, select your own
+    GitHub user account, where you published your team's repository.
+    Under <strong>Repository access</strong>, choose
+    <strong>Only select repositories</strong> and select the private
+    repository you just published. Complete the authorization. If using
+    an existing app installation, preserve access needed by its other
+    projects.</li>
+  <li>Back in <strong>Set up with Cloud Build</strong>, select your
+    team repository. Read and check the acknowledgement beginning
+    <strong>"I understand that GitHub content for the selected
+    repositories will be transferred to this GCP project"</strong>,
+    then click <strong>Next</strong>. If the repository is missing,
+    use <strong>Manage connected repositories</strong> to check the
+    app's access. Do not make the repository public.</li>
+  <li>Under <strong>Build Type</strong>, select
+    <strong>Go, Node.js, Python, Java, .NET Core, Ruby or PHP via
+    Google Cloud's buildpacks</strong>.</li>
+  <li>Click <strong>Save</strong> to return to
+    <strong>Create service</strong>. Set:
+    <ul>
+      <li><strong>Service name:</strong> <code>project1-web</code></li>
+      <li><strong>Region:</strong> <code>us-east1</code></li>
+      <li><strong>Authentication:</strong> Require authentication
+        for now; you will grant public access in Section 7.</li>
+      <li><strong>Service scaling:</strong> Autoscaling, with minimum
+        <code>0</code> and maximum <code>1</code> instances</li>
+    </ul>
+  </li>
+  <li>Expand <strong>Containers, Networking, Security</strong>. The
+    first container card is your Flask application. Each container has
+    its own <strong>Settings</strong>,
+    <strong>Variables &amp; Secrets</strong>, and
+    <strong>Volumes</strong> tabs. You will configure Flask in Section 5
+    and add the proxy container below it in Section 6. Use
+    <strong>Done</strong> at the bottom of a container card when you
+    finish editing it; this does not create the service.</li>
+</ol>
+
+<h3>5. Configure the Flask container</h3>
+
+<ol>
+  <li>On the <strong>Create service</strong> page, scroll to the first
+    (Flask) container card and open it if it is collapsed. Keep its
+    generated name. Click its <strong>Variables &amp; Secrets</strong>
+    tab; leave its <strong>Settings</strong> and
+    <strong>Volumes</strong> unchanged for now.</li>
+  <li>Click <strong>Add variable</strong> for each ordinary runtime
+    variable:
+    <ul>
+      <li><code>DB_HOST</code>: <code>127.0.0.1</code></li>
+      <li><code>DB_PORT</code>: <code>5454</code></li>
+      <li><code>DB_NAME</code>: <code>proj1part2</code></li>
+    </ul>
+  </li>
+  <li>Click <strong>Reference a secret</strong>. Set the environment
+    variable name to <code>DB_USER</code>, select secret
+    <code>db-user</code>, choose version <strong>1</strong>, and click
+    <strong>Done</strong>.</li>
+  <li>Repeat for <code>DB_PASSWORD</code>, referencing
+    <code>db-password</code>, version <strong>1</strong>. Do not copy
+    the password into an ordinary variable or mount the JSON key in
+    Flask.</li>
+  <li>Click <strong>Done</strong> at the bottom of the Flask container
+    card, then scroll below it to <strong>Add Container</strong>.
+    Do not click the page's <strong>Create</strong> button yet.</li>
+</ol>
+
+<h3>6. Add the Cloud SQL Auth Proxy sidecar</h3>
+
+<p>The service will have two containers. Flask receives web requests;
+the proxy connects Flask to the existing course PostgreSQL instance.
+Do not add a second database server or a separate built-in Cloud SQL
+connection on top of this proxy configuration.</p>
+
+<ol>
+  <li>Still on the <strong>Create service</strong> page, click
+    <strong>Add Container</strong> below the Flask card. Name the new
+    container <code>cloud-sql-proxy</code> and enter this image:</li>
+</ol>
+
+<pre>gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3</pre>
+
+<ol start="2">
+  <li>In the proxy container's <strong>Settings</strong> tab, set its
+    CPU to <strong>1</strong> and memory to <strong>128 MiB</strong>.
+    Leave <strong>Container command</strong> blank. Copy all four
+    arguments below together, paste them into
+    <strong>Container arguments</strong>, and press the
+    <strong>Space</strong> key:</li>
+</ol>
+
+<pre>--address=0.0.0.0
+--port=5454
+--credentials-file=/secrets/proxy-key.json
+coms4111-db-ta:us-east1:server-4111-fall-2026</pre>
+
+<p>Check that the field now shows <strong>four separate arguments</strong>,
+not one combined entry. If the paste did not separate them, enter each
+argument individually. Do not include surrounding quotes.</p>
+
+<ol start="3">
+  <li>In the proxy's <strong>Settings</strong> tab, scroll down to
+    <strong>Health checks</strong> and click
+    <strong>Add health check</strong>. Select
+    <strong>Startup check</strong> and probe type <strong>TCP</strong>.
+    Set:
+    <ul>
+      <li><strong>Port:</strong> <code>5454</code></li>
+      <li><strong>Initial delay:</strong> <code>0</code> seconds</li>
+      <li><strong>Period:</strong> <code>2</code> seconds</li>
+      <li><strong>Failure threshold:</strong> <code>30</code></li>
+      <li><strong>Timeout:</strong> <code>1</code> second</li>
+    </ul>
+    Click <strong>Add</strong> to save the check.
+  </li>
+  <li>Scroll back to the tabs at the top of the
+    <strong>cloud-sql-proxy</strong> card. Select
+    <strong>Volumes</strong>, then click
+    <strong>Mount volume &rarr; Secret</strong>. Enter:
+    <ul>
+      <li><strong>Mount path:</strong> <code>/secrets</code>
+        (the directory, not the full filename)</li>
+      <li><strong>Secret:</strong> <code>cloud-sql-proxy-key</code></li>
+      <li><strong>Path 1:</strong> <code>proxy-key.json</code></li>
+      <li><strong>Version 1:</strong> <code>1</code></li>
+    </ul>
+    Click <strong>Save</strong>. Confirm that the resulting file is
+    <code>/secrets/proxy-key.json</code> and that the mount is attached
+    <strong>only to the proxy container</strong>. Click
+    <strong>Done</strong> for the proxy card.
+  </li>
+  <li>Scroll up to the <strong>Flask container</strong> card, open it,
+    and select <strong>Settings</strong>. Under
+    <strong>Container startup order</strong>, select
+    <strong>cloud-sql-proxy</strong> as the container that must start
+    first. <strong>Flask depends on the proxy, not the reverse.</strong>
+    Click <strong>Done</strong> for the Flask card.</li>
+  <li>After both containers are configured, scroll to the bottom of
+    the <strong>Create service</strong> page and click
+    <strong>Create</strong>. The initial build and deployment will
+    start automatically.</li>
+</ol>
+
+<p>The proxy must listen on <code>0.0.0.0</code> so its startup probe
+can reach it. Flask connects through <code>127.0.0.1:5454</code>. This
+does not expose the database port as a public Cloud Run endpoint.</p>
+
+<h3>7. Grant public access</h3>
+
+<ol>
+  <li>Return to the Cloud Run <strong>Services list</strong>. Select
+    the <strong>checkbox beside project1-web</strong>, rather than
+    clicking the service name.</li>
+  <li>Click <strong>Show Info Panel</strong> if needed, then open
+    <strong>Permissions &rarr; Add principal</strong>.</li>
+  <li>Enter <code>allUsers</code> in <strong>New principals</strong>.</li>
+  <li>Select <strong>Cloud Run Invoker</strong> and click
+    <strong>Save</strong>.</li>
+  <li>Confirm <strong>Allow public access</strong> when prompted.
+    This grant applies to this service, not your secrets or the
+    entire project.</li>
+</ol>
+
+<h3>8. Check the website</h3>
+
+<p><strong>Important:</strong> This example is public and has no login
+protection. Anyone with the URL can submit names. Use only invented
+data.</p>
+
+<ol>
+  <li>Go to <strong>Cloud Build &rarr; History</strong>, open the build
+    for your repository, and wait for it to succeed. Then return to
+    <strong>Cloud Run &rarr; Services &rarr; project1-web</strong> and
+    check that the service is ready before opening the website.
+    <p>If the build fails, read its logs in Cloud Build. For startup
+    errors, open the Cloud Run service and check its <strong>Logs</strong>
+    tab. An error mentioning port 8080 can be caused by a failed proxy
+    probe; check the proxy arguments, secret mount, and startup check.
+    For permission errors, contact staff; enabling an API does not
+    grant IAM roles. Do not create another trigger.</p>
+  </li>
+  <li>Copy the service's displayed <strong>HTTPS URL</strong> and open
+    it in an incognito/private browser window.</li>
+  <li>Append <code>/another</code> to the URL to check Flask routing.
+    This route does not query the database.</li>
+  <li>Open <code>/db-check</code>. Its JSON response should include
+    <code>select_1: 1</code> and
+    <code>current_schema_accessible: true</code>.
+    <code>demo_table_exists</code> is a Boolean indicating whether the
+    example table already exists. This check does not create tables
+    or schemas. If database access fails, check your actual Part 2
+    credentials and the version-1 secret references; contact staff
+    about missing schema permissions rather than changing schemas or
+    grants.</li>
+  <li>Open the homepage at the service's root URL. The starter does
+    <strong>not</strong> create tables on import or deployment. If the
+    example table is absent and it is safe to create it in your
+    existing current schema, click
+    <strong>Initialize example table</strong>. This button appears
+    while the example table is missing and disappears once it exists.
+    The action creates
+    <code>test</code> with columns <code>id SERIAL PRIMARY KEY</code>
+    and <code>name TEXT NOT NULL</code>, and inserts three example
+    names if the table is empty. It does not create a schema.
+    <strong>Do not initialize if a pre-existing table named
+    <code>test</code> contains meaningful data.</strong> If you are
+    unsure what an existing table contains, ask staff first.</li>
+  <li>Submit an invented name using the <strong>Add</strong> form.
+    Refresh the page and confirm that the name was saved in
+    PostgreSQL. The starter uses parameterized SQL for this insert;
+    continue using parameters when adding your own queries.</li>
+
+</ol>
+
+<p>Your website is now configured. Subsequent pushes or merges to
+<code>main</code> trigger automatic deployment. You can now begin
+replacing the demonstration with your Part 3 application.</p>
+
+</div>
+</body>
+</html>
