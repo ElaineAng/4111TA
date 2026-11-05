@@ -7,18 +7,37 @@ Cloud Run uses the Gunicorn command in Procfile instead of Flask's dev server.
 import os
 from functools import lru_cache
 
-from flask import Flask, abort, g, jsonify, redirect, render_template, request, url_for
+from dotenv import load_dotenv
+from flask import (
+    Flask,
+    abort,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from tutorial.step1_routing import bp as step1_bp
+from tutorial.step4_app import bp as step4_bp
+
+load_dotenv()  # read DB_USER / DB_PASSWORD from .env, even when server is imported
+
 app = Flask(__name__)
+
+# Tutorial demo pages at /step1/ and /step4/ (see tutorial/README.md).
+app.register_blueprint(step1_bp)
+app.register_blueprint(step4_bp)
 
 
 @lru_cache(maxsize=1)
 def get_engine():
     """Configure the connection pool without opening a connection at import."""
     database_url = URL.create(
-        "postgresql+psycopg2",
+        "postgresql+psycopg2",  # dialect+driver: PostgreSQL, via the psycopg2 package
         username=os.environ["DB_USER"],
         password=os.environ["DB_PASSWORD"],
         host=os.environ.get("DB_HOST", "127.0.0.1"),
@@ -31,9 +50,11 @@ def get_engine():
         max_overflow=0,
         pool_pre_ping=True,
         pool_timeout=5,
-        connect_args={"connect_timeout": 5, "options": "-c statement_timeout=5000"},
+        connect_args={
+            "connect_timeout": 5,
+            "options": "-c statement_timeout=5000",
+        },
     )
-
 
 
 @app.before_request
@@ -41,8 +62,13 @@ def before_request():
     """Make a connection available as g.conn for database-backed routes."""
     g.conn = None
     g.database_error = None
-    g.database_configured = bool(os.environ.get("DB_USER") and os.environ.get("DB_PASSWORD"))
-    if request.endpoint not in {"index", "add", "initialize", "database_check"}:
+    g.database_configured = bool(
+        os.environ.get("DB_USER") and os.environ.get("DB_PASSWORD")
+    )
+    if (
+        request.endpoint not in {"index", "add", "initialize", "database_check"}
+        and request.blueprint != "step4"
+    ):
         return
     if not g.database_configured:
         g.database_error = "Database credentials are not configured yet. Follow the Cloud Run setup guide."
@@ -53,13 +79,17 @@ def before_request():
         if schema:
             # Bind the schema value and quote it as one identifier, not raw SQL.
             g.conn.execute(
-                text("SELECT set_config('search_path', quote_ident(:schema), false)"),
+                text(
+                    "SELECT set_config('search_path', quote_ident(:schema), false)"
+                ),
                 {"schema": schema},
             )
             g.conn.commit()
     except (SQLAlchemyError, ValueError, KeyError) as exc:
         # Driver exception messages can contain credentials or connection details.
-        app.logger.warning("Database connection failed (%s)", type(exc).__name__)
+        app.logger.warning(
+            "Database connection failed (%s)", type(exc).__name__
+        )
         if g.conn is not None:
             g.conn.close()
             g.conn = None
@@ -80,7 +110,6 @@ def render_index(data=None, table_exists=False, error=None, status=200):
         data=data or [],
         table_exists=table_exists,
         database_ready=g.get("conn") is not None,
-
         error=error,
     ), status
 
@@ -99,14 +128,20 @@ def database_error(error):
     app.logger.warning("Database operation failed (%s)", type(error).__name__)
     if request.endpoint == "database_check":
         return jsonify(database="unavailable"), 503
-    return render_index(error="The database operation could not be completed. Check the application logs.", status=503)
+    return render_index(
+        error="The database operation could not be completed. Check the application logs.",
+        status=503,
+    )
 
 
 @app.errorhandler(503)
 def unavailable(error):
     if request.endpoint == "database_check":
         return jsonify(database="unavailable"), 503
-    return render_index(error=g.get("database_error") or "The database is unavailable.", status=503)
+    return render_index(
+        error=g.get("database_error") or "The database is unavailable.",
+        status=503,
+    )
 
 
 @app.route("/")
@@ -117,7 +152,9 @@ def index():
         status = 503 if g.database_configured else 200
         return render_index(error=g.database_error, status=status)
 
-    table_exists = g.conn.execute(text("SELECT to_regclass('test') IS NOT NULL")).scalar_one()
+    table_exists = g.conn.execute(
+        text("SELECT to_regclass('test') IS NOT NULL")
+    ).scalar_one()
     if not table_exists:
         return render_index()
 
@@ -136,13 +173,19 @@ def another():
 def initialize():
     """Explicitly create the original example table; never create a schema."""
     conn = require_connection()
-    conn.execute(text("CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, name text NOT NULL)"))
-    conn.execute(text("""
+    conn.execute(
+        text(
+            "CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, name text NOT NULL)"
+        )
+    )
+    conn.execute(
+        text("""
         INSERT INTO test(name)
         SELECT seed.name
         FROM (VALUES ('grace hopper'), ('alan turing'), ('ada lovelace')) AS seed(name)
         WHERE NOT EXISTS (SELECT 1 FROM test)
-    """))
+    """)
+    )
     conn.commit()
     return redirect(url_for("index"))
 
@@ -169,11 +212,15 @@ def login():
 def database_check():
     conn = require_connection()
     value = conn.execute(text("SELECT :value"), {"value": 1}).scalar_one()
-    schema_accessible = conn.execute(text("""
+    schema_accessible = conn.execute(
+        text("""
         SELECT current_schema() IS NOT NULL
             AND has_schema_privilege(current_schema(), 'USAGE')
-    """)).scalar_one()
-    table_exists = conn.execute(text("SELECT to_regclass('test') IS NOT NULL")).scalar_one()
+    """)
+    ).scalar_one()
+    table_exists = conn.execute(
+        text("SELECT to_regclass('test') IS NOT NULL")
+    ).scalar_one()
     return jsonify(
         database="ok",
         select_1=value,

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Students</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Students</h1>
+
+  <form method="GET" action="{{ url_for('step4.students') }}">
+    <input name="q" value="{{ q }}" placeholder="Search by name">
+    <button>Search</button>
+  </form>
+
+  {% if rows %}
+  <table border="1" cellpadding="6">
+    <tr><th>UNI</th><th>Name</th><th>Major</th></tr>
+    {% for row in rows %}
+    <tr>
+      <td><a href="{{ url_for('step4.student_detail', uni=row.uni) }}">{{ row.uni }}</a></td>
+      <td>{{ row.name }}</td>
+      <td>{{ row.major or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>No students found.</p>
+  {% endif %}
+
+  <h2>Add a student</h2>
+  <form method="POST" action="{{ url_for('step4.add_student') }}">
+    <input name="uni" placeholder="UNI" required>
+    <input name="name" placeholder="Name" required>
+    <input name="major" placeholder="Major (optional)">
+    <button>Add</button>
+  </form>
+</body>
+</html>

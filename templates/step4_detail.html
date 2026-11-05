@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ student.name if student else "Student not found" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% if student %}
+  <h1>{{ student.name }}</h1>
+  <p>UNI: {{ student.uni }}</p>
+  <p>Major: {{ student.major or "undeclared" }}</p>
+  {% else %}
+  <h1>Student not found</h1>
+  <p>There is no student with UNI <b>{{ uni }}</b>. Check the spelling, or pick one from the list.</p>
+  {% endif %}
+  <p><a href="{{ url_for('step4.students') }}">Back to all students</a></p>
+</body>
+</html>
